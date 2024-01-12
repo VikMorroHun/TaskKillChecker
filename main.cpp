@@ -13,7 +13,7 @@ int main()
 	QDir dir;
 	QFileInfo fiLog;
 	QTime tCooldownStart, tNow;
-	QFile fCfg;
+	QFile fCfg, fLog;
 	QDateTime dtLastTick, dtFile;
 	qint32 i, iCooldownTimer, iArr, iState, iWaitCooldownMin, iRestartCnt, iOldTickThreshold;		// states: 0 - normal check, 1 - TaskKill process start, 2 - TaskKill finished/restart
 	qint64 qi64sec;
@@ -182,13 +182,13 @@ int main()
 start:
 	iArr = iState = 0;
 	tNow = QTime::currentTime();//tNow = tNow.addSecs( 65 );
-	i = tNow.hour() * 60 + tNow.minute();
+	i = tNow.hour() * 60 + tNow.minute();fLog.setFileName(fiLog.absoluteFilePath());
 	if ( i - ( tCooldownStart.hour() * 60 + tCooldownStart.minute() ) > iWaitCooldownMin )			// won't work correctly around midnight.  Should have used QDateTime.  I don't care. :)
 	{
 		cout << "Cooldown finished." << endl;
 		iCooldownTimer = 0;
 	}
-	if ( !fiLog.exists() )
+	if ( !fiLog.exists() && !iCooldownTimer )
 	{
 		cout << "Error: file \"" << sFileName.toLatin1().data() << "\" does not exist.  Check the config file." << endl;
 		//qInfo() << "Error: file \"" << sFileName.toLatin1().data() << "\" does not exist.";		// extra spaces
@@ -196,11 +196,30 @@ start:
 	}
 	do
 	{
+		if ( kbhit() )
+		{
+			ch = getch();
+			if ( ch == 27 )
+			{
+				str = "\nRestart counter so far: " + QString::number( iRestartCnt ) + "\n";
+				cout << str.toLatin1().data() << "Do you want to quit? Y/N" << endl;
+				ch = toupper( getch() );
+				if ( kbhit() )						// clear stdin buffer correctly
+				{
+					cin.clear();
+					cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+				}
+				if ( ch == 'Y' )
+				{
+					iState = 99;
+					break;
+				}
+			}
+		}
 		if ( fiLog.exists() )
 		{
 			fiLog.refresh();
 			dtFile = fiLog.fileTime( QFileDevice::FileModificationTime );
-			//dtFile = fiLog.lastModified();
 			dtLastTick = QDateTime::currentDateTime();
 			if ( dtFile.isValid() )
 			{
@@ -223,23 +242,6 @@ start:
 			else cout << "Error reading log file time!" << endl;
 		}
 		QThread::msleep( 1000 );
-		if ( kbhit() )
-		{
-			ch = getch();
-			if ( ch == 27 )
-			{
-				str = "\nRestart counter so far: " + QString::number( iRestartCnt ) + "\n";
-				cout << str.toLatin1().data() << "Do you want to quit? Y/N" << endl;
-				ch = toupper( getch() );
-				if ( kbhit() )						// clear stdin buffer correctly
-				{
-					cin.clear();
-					cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-				}
-				if ( ch == 'Y' )
-					break;
-			}
-		}
 	} while ( !iState );
 	if ( iState == 1 )			// kill process
 	{
@@ -248,6 +250,8 @@ start:
 			if ( proc->state() == QProcess::Running && !iCooldownTimer )
 			{
 				proc->close();
+				if ( fLog.exists() )
+					fLog.remove();
 				cout << "Terminal process closed." << endl;
 			}
 		}
@@ -259,7 +263,7 @@ start:
 		}
 		cout << "Waiting for restart..." << endl;
 		iState = 2;QThread::msleep( ulWaitRestartMs );
-		if ( kbhit() )
+		/*if ( kbhit() )
 		{
 			ch = getch();
 			if ( ch == 27 )
@@ -275,7 +279,7 @@ start:
 				if ( ch == 'Y' )
 					iState = 0;
 			}
-		}
+		}*/
 	}
 	if ( iState == 2 )		//restart terminal64.exe
 	{
