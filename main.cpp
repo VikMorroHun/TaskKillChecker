@@ -239,7 +239,12 @@ start:
 						iArr = 0;
 				}
 			}
-			else cout << "Error reading log file time!" << endl;
+			else
+			{
+				cout << "Error reading log file time - deleting log." << endl;
+				if ( fLog.exists() )
+					fLog.remove();		// necessary
+			}
 		}
 		QThread::msleep( 1000 );
 	} while ( !iState );
@@ -250,8 +255,8 @@ start:
 			if ( proc->state() == QProcess::Running && !iCooldownTimer )
 			{
 				proc->close();
-				if ( fLog.exists() )
-					fLog.remove();
+				//if ( fLog.exists() )
+					//fLog.remove();		// not necessary
 				cout << "Terminal process closed." << endl;
 			}
 		}
@@ -263,23 +268,6 @@ start:
 		}
 		cout << "Waiting for restart..." << endl;
 		iState = 2;QThread::msleep( ulWaitRestartMs );
-		/*if ( kbhit() )
-		{
-			ch = getch();
-			if ( ch == 27 )
-			{
-				str = "\nRestart counter so far: " + QString::number( iRestartCnt ) + "\n";
-				cout << str.toLatin1().data() << "Do you want to quit? Y/N" << endl;
-				ch = toupper( getch() );
-				if ( kbhit() )						// clear stdin buffer correctly
-				{
-					cin.clear();
-					cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-				}
-				if ( ch == 'Y' )
-					iState = 0;
-			}
-		}*/
 	}
 	if ( iState == 2 )		//restart terminal64.exe
 	{
